@@ -10,25 +10,25 @@ func reader(port string, stopChannel chan bool){
 	fmt.Println("Listening on port ", port)
 	
 	// listen on all interfaces
-	ln, err := net.Listen("tcp", ":" + port)
+	listener, listenerError := net.Listen("tcp", ":" + port)
   
-	if err != nil {
-	  fmt.Println("Error while starting server\n", err)
+	if listenerError != nil {
+	  fmt.Println("Error while starting server\n", listenerError)
 	  os.Exit(1)
 	}
 
-	connection, connectionError := ln.Accept()
+	connection, connectionError := listener.Accept()
 
 	if connectionError != nil {
-		fmt.Println("Error while accepting connection at server: \n", err)
+		fmt.Println("Error while accepting connection at server: \n", connectionError)
 	} else {
 		fmt.Println("Connection received at server")
 	}
 
 	for {
 		// will listen for message to process ending in newline (\n)
-		message, connectionError := bufio.NewReader(connection).ReadString('\n')
-		if connectionError != nil {
+		message, readError := bufio.NewReader(connection).ReadString('\n')
+		if readError != nil {
 			connection.Close()
 			break
 		}
