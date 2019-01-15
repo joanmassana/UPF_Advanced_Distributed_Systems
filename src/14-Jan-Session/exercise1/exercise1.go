@@ -49,8 +49,7 @@ func writer(otherIP, otherPort string, stopChannel chan bool){
 	connection, connectionError := net.Dial("tcp", otherIP + ":" + otherPort)
 	for connectionError != nil {
 		connection, connectionError = net.Dial("tcp", otherIP + ":" + otherPort)  
-	}	
-	
+	}		
 	fmt.Println("Succesful dial")	 
 
 	// run loop forever (or until ctrl-c)
@@ -95,8 +94,10 @@ func eraseNewlines(inputText string) string {
 
 func main() {
 
-  thisPort := "6001"
-  otherPort := "6002"
+	argsWithoutProg := os.Args[1:]
+	
+  thisPort := argsWithoutProg[0]
+  otherPort := argsWithoutProg[1]
 
   otherIP := "127.0.0.1"
 
