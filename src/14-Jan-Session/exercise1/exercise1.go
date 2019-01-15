@@ -4,9 +4,9 @@ import "net"
 import "fmt"
 import "os"
 import "bufio"
-//import "strings" // only needed below for sample processing
+import "strings" // only needed below for sample processing
 
-func reader(port string, stop chan bool){
+func reader(port string, stopChannel chan bool){
 	fmt.Println("Listening on port ", port)
 	
 	// listen on all interfaces
@@ -20,7 +20,7 @@ func reader(port string, stop chan bool){
 	conn, err := ln.Accept()
 
     if err != nil {
-      fmt.Println("Error while accepting connection at server\n%v\n", err)
+      fmt.Println("Error while accepting connection at server: \n", err)
     } else {
       fmt.Println("Connection received at server")
     }
@@ -33,25 +33,26 @@ func reader(port string, stop chan bool){
 			break
 		}
 		
-		if string(message) == "stop\n" {			
-			fmt.Println("Should stop\n") 
-			conn.Close()
-			stop <- true
-		}
-
 		// output message received
-		fmt.Print("Message Received:", string(message))		
+		fmt.Print("Message Received: ", string(message))	
+		
+		if "stop" == eraseNewlines(message) {
+			fmt.Println("Reader - Should stop") 
+			conn.Close()
+			stopChannel <- true
+		}
+			
 	}
 }
 
-func writer(otherIP, otherPort string, stop chan bool){
+func writer(otherIP, otherPort string, stopChannel chan bool){
 	// connect to this socket
 	conn, err := net.Dial("tcp", otherIP + ":" + otherPort)
 	for err != nil {
 		conn, err = net.Dial("tcp", otherIP + ":" + otherPort)  //Protocol used, IP:port of server we're calling. Here conn is our channel.
 	}	
 	
-	fmt.Println("Good dial")	 
+	fmt.Println("Succesful dial")	 
 
 	// run loop forever (or until ctrl-c)
 	for { 
@@ -64,11 +65,33 @@ func writer(otherIP, otherPort string, stop chan bool){
 	  // send to socket
 	  fmt.Fprintf(conn, text + "\n")   
 
-	  if string(text) == "stop" {
-		fmt.Println("Should stop\n") 
-		stop <- true
+	  if "stop" == eraseNewlines(text) {
+			fmt.Println("Writer - Should stop")
+			stopChannel <- true
+			//TODO Aqui hay un caso en que si el mensaje a stopChannel tarda en llegar, vemos otra vez el 'Text to send' en consola
 	  }
 	}
+}
+
+// normalizeNewLines normalizes \r\n (windows) and \r (mac)
+// into \n (unix)
+func normalizeNewlines(inputText string) string {
+	// replace CR LF \r\n (windows) with LF \n (unix)
+	inputText = strings.Replace(inputText, "\r\n", "\n", -1)
+	// replace CF \r (mac) with LF \n (unix)
+	inputText = strings.Replace(inputText, "\r", "\n", -1)
+
+	return inputText
+}
+
+// eraseNewLines erases \r\n (windows) and \r (mac) and \n (unix)
+func eraseNewlines(inputText string) string {
+	// replace CR LF \n (windows / linux) 
+	inputText = strings.Replace(inputText, "\n", "", -1)
+	// replace CF \r (mac)
+	inputText = strings.Replace(inputText, "\r", "", -1)
+
+	return inputText
 }
 
 func main() {
@@ -78,10 +101,10 @@ func main() {
 
   otherIP := "127.0.0.1"
 
-  stop := make(chan bool)
+  stopChannel := make(chan bool)
 
-  go reader(thisPort, stop);
-  go writer(otherIP, otherPort, stop);
+  go reader(thisPort, stopChannel);
+  go writer(otherIP, otherPort, stopChannel);
 
-  <- stop
+  <- stopChannel
 }
