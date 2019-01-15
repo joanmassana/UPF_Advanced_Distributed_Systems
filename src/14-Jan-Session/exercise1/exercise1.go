@@ -17,19 +17,19 @@ func reader(port string, stopChannel chan bool){
 	  os.Exit(1)
 	}
 
-	conn, err := ln.Accept()
+	connection, connectionError := ln.Accept()
 
-    if err != nil {
-      fmt.Println("Error while accepting connection at server: \n", err)
-    } else {
-      fmt.Println("Connection received at server")
-    }
+	if connectionError != nil {
+		fmt.Println("Error while accepting connection at server: \n", err)
+	} else {
+		fmt.Println("Connection received at server")
+	}
 
-    for {
+	for {
 		// will listen for message to process ending in newline (\n)
-		message, err := bufio.NewReader(conn).ReadString('\n')
-		if err != nil {
-			conn.Close()
+		message, connectionError := bufio.NewReader(connection).ReadString('\n')
+		if connectionError != nil {
+			connection.Close()
 			break
 		}
 		
@@ -38,18 +38,17 @@ func reader(port string, stopChannel chan bool){
 		
 		if "stop" == eraseNewlines(message) {
 			fmt.Println("Reader - Should stop") 
-			conn.Close()
+			connection.Close()
 			stopChannel <- true
-		}
-			
+		}			
 	}
 }
 
 func writer(otherIP, otherPort string, stopChannel chan bool){
 	// connect to this socket
-	conn, err := net.Dial("tcp", otherIP + ":" + otherPort)
-	for err != nil {
-		conn, err = net.Dial("tcp", otherIP + ":" + otherPort)  //Protocol used, IP:port of server we're calling. Here conn is our channel.
+	connection, connectionError := net.Dial("tcp", otherIP + ":" + otherPort)
+	for connectionError != nil {
+		connection, connectionError = net.Dial("tcp", otherIP + ":" + otherPort)  
 	}	
 	
 	fmt.Println("Succesful dial")	 
@@ -63,7 +62,7 @@ func writer(otherIP, otherPort string, stopChannel chan bool){
 	  text, _ := reader.ReadString('\n')
   
 	  // send to socket
-	  fmt.Fprintf(conn, text + "\n")   
+	  fmt.Fprintf(connection, text + "\n")   
 
 	  if "stop" == eraseNewlines(text) {
 			fmt.Println("Writer - Should stop")
