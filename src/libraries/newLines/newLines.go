@@ -1,6 +1,6 @@
 package newLines
 
-import "strings" 
+import "strings"
 
 // normalizeNewLines normalizes \r\n (windows) and \r (mac)
 // into \n (unix)
@@ -15,7 +15,7 @@ func NormalizeNewLines(inputText string) string {
 
 // eraseNewLines erases \r\n (windows) and \r (mac) and \n (unix)
 func EraseNewLines(inputText string) string {
-	// replace CR LF \n (windows / linux) 
+	// replace CR LF \n (windows / linux)
 	inputText = strings.Replace(inputText, "\n", "", -1)
 	// replace CF \r (mac)
 	inputText = strings.Replace(inputText, "\r", "", -1)

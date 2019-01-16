@@ -7,27 +7,27 @@ import "strings" // only needed below for sample processing
 
 func main() {
 
-  fmt.Println("Launching server...")
+	fmt.Println("Launching server...")
 
-  // listen on all interfaces
-  ln, _ := net.Listen("tcp", ":6001")
+	// listen on all interfaces
+	ln, _ := net.Listen("tcp", ":6001")
 
-  // accept connection on port
-  conn, _ := ln.Accept()
+	// accept connection on port
+	conn, _ := ln.Accept()
 
-  // run loop forever (or until ctrl-c)
-  for {
+	// run loop forever (or until ctrl-c)
+	for {
 
-    // will listen for message to process ending in newline (\n)
-    message, _ := bufio.NewReader(conn).ReadString('\n')
+		// will listen for message to process ending in newline (\n)
+		message, _ := bufio.NewReader(conn).ReadString('\n')
 
-    // output message received
-    fmt.Print("Message Received:", string(message))
-    
-    // sample process for string received
-    newmessage := strings.ToUpper(message)
-    
-    // send new string back to client
-    conn.Write([]byte(newmessage + "\n"))
-  }
+		// output message received
+		fmt.Print("Message Received:", string(message))
+
+		// sample process for string received
+		newmessage := strings.ToUpper(message)
+
+		// send new string back to client
+		conn.Write([]byte(newmessage + "\n"))
+	}
 }
