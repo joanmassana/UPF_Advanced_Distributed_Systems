@@ -7,12 +7,13 @@ import (
 	"libraries/newLines"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
-func receiveFile(baseDir, filename string, connection net.Conn) error {
+func receiveFile(baseDir, filename string, size int64, connection net.Conn) error {
 
 	receiveFileError := os.MkdirAll(baseDir, os.FileMode(int(0775)))
 	if receiveFileError == nil {
@@ -24,15 +25,16 @@ func receiveFile(baseDir, filename string, connection net.Conn) error {
 			log.Info("READER - File ready!")
 			defer destinationFile.Close()
 
-			_, receiveFileError := io.Copy(destinationFile, connection)
+			_, receiveFileError := io.CopyN(destinationFile, connection, size)
 			if receiveFileError == nil {
 				log.Info("READER - Filename created at ", baseDir+filename)
 
 				//Get file details
 				file, _ := destinationFile.Stat()
+
 				//EXC2. MOSTRAR EN PANTALLA NOMBRE Y TAMAÑO DEL ARCHIVO RECIBIDO
-				log.Info("Name of file", file.Name())
-				log.Info("Size of file", file.Size())
+				fmt.Println("Name of file: ", file.Name())
+				fmt.Println("Size of file", file.Size())
 
 			} else {
 				log.Error("READER - Error receiving file: ", receiveFileError)
@@ -51,21 +53,37 @@ func receiveFile(baseDir, filename string, connection net.Conn) error {
 func readerLoop(connection net.Conn, stopChannel chan bool) {
 
 	for {
-		text, readError := bufio.NewReader(connection).ReadString('\n')
+		reader := bufio.NewReader(connection)
+		data, readError := reader.ReadString('\n')
 		if readError == nil {
 
-			text = newLines.EraseNewLines(text)
-			if text == "stop" {
+			data = newLines.EraseNewLines(data)
+			if data == "stop" {
 				log.Info("READER - Stop received! Shutting down...")
 				break
 
 			} else {
-				log.Info("READER - Filename received!")
+				filename := data
+				log.Debug("READER - Filename received: ", filename)
 
-				baseDir := "src/Lab1/exercise2/files/received/"
-				receiveFileError := receiveFile(baseDir, text, connection)
-				if receiveFileError != nil {
-					log.Error("READER - Error receiving file: ", receiveFileError)
+				data, readError = reader.ReadString('\n')
+				if readError == nil {
+
+					data = newLines.EraseNewLines(data)
+
+					var size int64
+					size, readError = strconv.ParseInt(data, 10, 64)
+					if readError == nil {
+						log.Debug("READER - File size received: ", data)
+
+						baseDir := "src/Lab1/exercise2/files/received/"
+						receiveFileError := receiveFile(baseDir, filename, size, connection)
+						if receiveFileError != nil {
+							log.Error("READER - Error receiving file: ", receiveFileError)
+						}
+					} else {
+						log.Error("READER - Error receiving file size: ", readError)
+					}
 				}
 			}
 
@@ -117,17 +135,25 @@ func sendFile(baseDir, filename string, connection net.Conn) error {
 		fileDetails, sendFileError = file.Stat()
 		if sendFileError == nil {
 
-			_, sendFileError = fmt.Fprintf(connection, fileDetails.Name()+"\n")
+			_, sendFileError = fmt.Fprintf(connection, "%s\n", fileDetails.Name())
 			if sendFileError == nil {
+				log.Debug("READER - Filename sent: ", fileDetails.Name())
 
-				//Send file
-				_, sendFileError = io.Copy(connection, file)
-				// 	if sendFileError != nil {
-				// 		log.Error("WRITER - Error sending file: ", sendFileError)
-				// 	}
+				var bytesSent int
+				bytesSent, sendFileError = fmt.Fprintf(connection, "%d\n", fileDetails.Size())
+				if sendFileError == nil && bytesSent > 0 {
+					log.Debug("READER - Filename size: ", fileDetails.Size())
+					log.Debug("READER - Bytes sent: ", bytesSent)
 
-				// } else {
-				// 	log.Error("WRITER - Error opening file: ", sendFileError)
+					//Send file
+					_, sendFileError = io.Copy(connection, file)
+					// 	if sendFileError != nil {
+					// 		log.Error("WRITER - Error sending file: ", sendFileError)
+					// 	}
+
+					// } else {
+					// 	log.Error("WRITER - Error opening file: ", sendFileError)
+				}
 			}
 
 			// } else {
@@ -189,6 +215,8 @@ func writer(otherIP, otherPort string, stopChannel chan bool) {
 }
 
 func main() {
+
+	log.SetLevel(log.DebugLevel)
 
 	otherIP := "127.0.0.1"
 	otherPort := ":6002"
