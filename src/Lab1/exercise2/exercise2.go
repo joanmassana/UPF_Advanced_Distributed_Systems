@@ -28,6 +28,12 @@ func receiveFile(baseDir, filename string, connection net.Conn) error {
 			if receiveFileError == nil {
 				log.Info("READER - Filename created at ", baseDir+filename)
 
+				//Get file details
+				file, _ := destinationFile.Stat()
+				//EXC2. MOSTRAR EN PANTALLA NOMBRE Y TAMAÑO DEL ARCHIVO RECIBIDO
+				log.Info("Name of file", file.Name())
+				log.Info("Size of file", file.Size())
+
 			} else {
 				log.Error("READER - Error receiving file: ", receiveFileError)
 			}
@@ -187,6 +193,7 @@ func main() {
 	otherIP := "127.0.0.1"
 	otherPort := ":6002"
 	thisPort := ":6001"
+
 	if len(os.Args) > 1 {
 		log.Info("Ports set by arguments...")
 
