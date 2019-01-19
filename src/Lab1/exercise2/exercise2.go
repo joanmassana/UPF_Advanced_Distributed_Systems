@@ -14,23 +14,19 @@ import (
 
 func receiveFile(baseDir, filename string, connection net.Conn) error {
 
-	//Create directory for incoming files if not exist
-	createDirError := os.MkdirAll(baseDir, os.FileMode(int(0775)))
-	if createDirError == nil {
-		log.Info("READER - Directories created!")
+	receiveFileError := os.MkdirAll(baseDir, os.FileMode(int(0775)))
+	if receiveFileError == nil {
+		log.Info("READER - Directories ready!")
 
-		//Create file for incoming file if not exist
 		var destinationFile *os.File
-		destinationFile, createFileError := os.Create(baseDir + filename)
-		if createFileError == nil {
-			log.Info("READER - File created!")
-
+		destinationFile, receiveFileError = os.Create(baseDir + filename)
+		if receiveFileError == nil {
+			log.Info("READER - File ready!")
 			defer destinationFile.Close()
 
-			//Get incoming file from connection
 			_, receiveFileError := io.Copy(destinationFile, connection)
 			if receiveFileError == nil {
-				log.Info("READER - File received")
+				log.Info("READER - Filename created at ", baseDir+filename)
 
 				//Get file details
 				file, _ := destinationFile.Stat()
@@ -38,19 +34,18 @@ func receiveFile(baseDir, filename string, connection net.Conn) error {
 				log.Info("Name of file", file.Name())
 				log.Info("Size of file", file.Size())
 
-
 			} else {
 				log.Error("READER - Error receiving file: ", receiveFileError)
 			}
 
 		} else {
-			log.Error("READER - Error creating file: ", createFileError)
+			log.Error("READER - Error creating file: ", receiveFileError)
 		}
 	} else {
-		log.Error("READER - Error creating directories: ", createDirError)
+		log.Error("READER - Error creating directories: ", receiveFileError)
 	}
 
-	return createDirError
+	return receiveFileError
 }
 
 func readerLoop(connection net.Conn, stopChannel chan bool) {
