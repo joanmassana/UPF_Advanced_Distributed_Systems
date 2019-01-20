@@ -1,4 +1,4 @@
-package exercise3
+package main
 
 import (
 	"bufio"
