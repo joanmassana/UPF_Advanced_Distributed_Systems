@@ -16,7 +16,6 @@ type networkConfig struct {
 	server 		networkAddress
 	clients 	[]networkAddress
 }
-
 type networkAddress struct {
 	ip 		string
 	port 	string
@@ -57,17 +56,18 @@ func receiveFile(baseDir, filename string, size int64, connection net.Conn) erro
 	return receiveFileError
 }
 
-func readerLoop(connection net.Conn, stopChannel chan bool) {
+func readMessage(connection net.Conn, stopChannel chan bool) {
 
 	for {
 		reader := bufio.NewReader(connection)
 		data, readError := reader.ReadString('\n')
+		log.Debug("Data received: ", data);
 		if readError == nil {
 
 			data = newLines.EraseNewLines(data)
 			if data == "stop" {
 				log.Info("READER - Stop received! Shutting down...")
-				break
+				stopChannel <- true
 
 			} else {
 				filename := data
@@ -112,17 +112,17 @@ func reader(port string, stopChannel chan bool) {
 	listener, listenerError := net.Listen("tcp", port)
 
 	if listenerError == nil {
-		connection, connectionError := listener.Accept()
+		for {
+			connection, connectionError := listener.Accept()
 
-		if connectionError == nil {
-			log.Info("READER - Connection received at server")
-			defer connection.Close()
+			if connectionError == nil {
+				log.Info("READER - Connection received at server")
 
-			readerLoop(connection, stopChannel)
-			stopChannel <- true
+				go readMessage(connection, stopChannel)
 
-		} else {
-			log.Error("READER - Error while accepting connection at server: ", connectionError)
+			} else {
+				log.Error("READER - Error while accepting connection at server: ", connectionError)
+			}
 		}
 
 	} else {
@@ -174,7 +174,7 @@ func sendFile(baseDir, filename string, connection net.Conn) error {
 	return sendFileError
 }
 
-func writerLoop(connection net.Conn, stopChannel chan bool) {
+func getUserInput(openConnections *[]net.Conn, stopChannel chan bool) {
 
 	for {
 		// read in input from stdin
@@ -187,18 +187,24 @@ func writerLoop(connection net.Conn, stopChannel chan bool) {
 			text = newLines.EraseNewLines(text)
 			if "stop" == text {
 				log.Info("WRITER - Should stop")
-				fmt.Fprintf(connection, text+"\n") //TODO Handle error
-				break
+				for _, connection := range *openConnections {
+					fmt.Fprintf(connection, text+"\n") //TODO Handle error
+					stopChannel <- true
+				}
 			} else if text == "" {
 				// do nothing
 
 			} else {
 				baseDir := "Lab1/exercise3/files/"
-				sendFileError := sendFile(baseDir, text, connection)
-				if sendFileError != nil {
-					log.Error("WRITER - Something went wrong while sending the file: ", sendFileError)
-					cwd, _ := os.Getwd()
-					log.Error("WRITER - CWD: ", cwd)
+				for _, connection := range *openConnections {
+					sendFileError := sendFile(baseDir, text, connection)
+					if sendFileError != nil {
+						log.Error("WRITER - Something went wrong while sending the file: ", sendFileError)
+						cwd, _ := os.Getwd()
+						log.Error("WRITER - CWD: ", cwd)
+					} else {
+						log.Info("File sent")
+					}
 				}
 			}
 		} else {
@@ -207,18 +213,18 @@ func writerLoop(connection net.Conn, stopChannel chan bool) {
 	}
 }
 
-func writer(otherIP, otherPort string, stopChannel chan bool) {
+func dial(otherIP, otherPort string, clientConnections *[]net.Conn) {
 
 	// connect to this socket
 	connection, connectionError := net.Dial("tcp", otherIP+otherPort)
 	for connectionError != nil {
 		connection, connectionError = net.Dial("tcp", otherIP+otherPort)
 	}
-	defer connection.Close()
 
 	log.Info("WRITER - Succesful dial - Connected to ", otherIP+otherPort)
-	writerLoop(connection, stopChannel)
-	stopChannel <- true
+
+	*clientConnections = append(*clientConnections, connection)
+	log.Info("Open Connections: ", *clientConnections)
 }
 
 func getNetworkConfig(configFilePath string) networkConfig {
@@ -238,7 +244,6 @@ func getNetworkConfig(configFilePath string) networkConfig {
 
 	return config
 }
-
 
 func fileToLines(filePath string) (lines []string, err error) {
 	f, err := os.Open("Lab1/exercise3/files/configFiles/" + filePath)
@@ -267,8 +272,10 @@ func getNetworkAddress(address string) networkAddress{
 
 func main() {
 
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 	var networkConfiguration networkConfig
+	var connections []net.Conn
+	stopChannel := make(chan bool)
 
 	if len(os.Args) > 0 {
 		//Get config file as argument
@@ -281,13 +288,13 @@ func main() {
 		log.Error("Argument missing: Config file.")
 	}
 
-	stopChannel := make(chan bool)
-
-	go reader(networkConfiguration.server.port, stopChannel)
+	go reader(networkConfiguration.server.port,stopChannel)
 
 	for i := 0; i < len(networkConfiguration.clients); i++ {
-		go writer(networkConfiguration.clients[i].ip, networkConfiguration.clients[i].port, stopChannel)
+		dial(networkConfiguration.clients[i].ip, networkConfiguration.clients[i].port, &connections)
 	}
+
+	go getUserInput(&connections, stopChannel)
 
 	<-stopChannel
 
