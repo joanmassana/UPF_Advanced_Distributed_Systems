@@ -31,8 +31,6 @@ func receiveFile(baseDir, filename string, size int64, connection net.Conn) erro
 
 				//Get file details
 				file, _ := destinationFile.Stat()
-
-				//EXC2. MOSTRAR EN PANTALLA NOMBRE Y TAMAÑO DEL ARCHIVO RECIBIDO
 				fmt.Println("Name of file: ", file.Name())
 				fmt.Println("Size of file", file.Size())
 
@@ -76,7 +74,7 @@ func readerLoop(connection net.Conn, stopChannel chan bool) {
 					if readError == nil {
 						log.Debug("READER - File size received: ", data)
 
-						baseDir := "src/Lab1/exercise2/files/received/"
+						baseDir := "Lab1/exercise2/files/received/"
 						receiveFileError := receiveFile(baseDir, filename, size, connection)
 						if receiveFileError != nil {
 							log.Error("READER - Error receiving file: ", receiveFileError)
@@ -186,7 +184,7 @@ func writerLoop(connection net.Conn, stopChannel chan bool) {
 				// do nothing
 
 			} else {
-				baseDir := "src/Lab1/exercise2/files/"
+				baseDir := "Lab1/exercise2/files/"
 				sendFileError := sendFile(baseDir, text, connection)
 				if sendFileError != nil {
 					log.Error("WRITER - Something went wrong while sending the file: ", sendFileError)
