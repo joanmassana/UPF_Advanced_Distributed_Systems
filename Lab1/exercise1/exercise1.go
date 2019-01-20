@@ -1,4 +1,4 @@
-package main
+package exercise1
 
 import "net"
 import "fmt"
