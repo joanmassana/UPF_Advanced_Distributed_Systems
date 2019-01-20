@@ -173,7 +173,7 @@ func writerLoop(connection net.Conn, stopChannel chan bool) {
 		// read in input from stdin
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Println("WRITER - Input full filename of file to send: ")
+		fmt.Println("Input full filename of file to send: ")
 		text, readError := reader.ReadString('\n')
 
 		if readError == nil {
@@ -216,7 +216,7 @@ func writer(otherIP, otherPort string, stopChannel chan bool) {
 
 func main() {
 
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.WarnLevel)
 
 	otherIP := "127.0.0.1"
 	otherPort := ":6002"
