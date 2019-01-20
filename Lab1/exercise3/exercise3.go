@@ -83,7 +83,7 @@ func readerLoop(connection net.Conn, stopChannel chan bool) {
 					if readError == nil {
 						log.Debug("READER - File size received: ", data)
 
-						baseDir := "Lab1/exercise2/files/received/"
+						baseDir := "Lab1/exercise3/files/received/"
 						receiveFileError := receiveFile(baseDir, filename, size, connection)
 						if receiveFileError != nil {
 							log.Error("READER - Error receiving file: ", receiveFileError)
@@ -193,7 +193,7 @@ func writerLoop(connection net.Conn, stopChannel chan bool) {
 				// do nothing
 
 			} else {
-				baseDir := "Lab1/exercise2/files/"
+				baseDir := "Lab1/exercise3/files/"
 				sendFileError := sendFile(baseDir, text, connection)
 				if sendFileError != nil {
 					log.Error("WRITER - Something went wrong while sending the file: ", sendFileError)
@@ -216,7 +216,7 @@ func writer(otherIP, otherPort string, stopChannel chan bool) {
 	}
 	defer connection.Close()
 
-	log.Info("WRITER - Succesful dial")
+	log.Info("WRITER - Succesful dial - Connected to ", otherIP+otherPort)
 	writerLoop(connection, stopChannel)
 	stopChannel <- true
 }
@@ -233,7 +233,9 @@ func getNetworkConfig(configFilePath string) networkConfig {
 		config.clients = append(config.clients, client)
 	}
 
-	log.Info("Config file is: ", config)
+	log.Info("Server: ", config.server)
+	log.Info("Clients: ", config.clients)
+
 	return config
 }
 
