@@ -228,13 +228,15 @@ func getNetworkConfig(configFilePath string) networkConfig {
 	addresses, _ := fileToLines(configFilePath)
 
 	config.server = getNetworkAddress(addresses[0])
-	for i := 1; i <= len(addresses); i++ {
+	for i := 1; i < len(addresses); i++ {
 		client := getNetworkAddress(addresses[i])
 		config.clients = append(config.clients, client)
 	}
 
+	log.Info("Config file is: ", config)
 	return config
 }
+
 
 func fileToLines(filePath string) (lines []string, err error) {
 	f, err := os.Open("Lab1/exercise3/files/configFiles/" + filePath)
@@ -256,14 +258,14 @@ func getNetworkAddress(address string) networkAddress{
 
 	addressSlice := strings.Split(address, ":")
 	networkAddress.ip = addressSlice[0]
-	networkAddress.port = addressSlice[1]
+	networkAddress.port = ":" + addressSlice[1]
 
 	return networkAddress
 }
 
 func main() {
 
-	log.SetLevel(log.WarnLevel)
+	log.SetLevel(log.InfoLevel)
 	var networkConfiguration networkConfig
 
 	if len(os.Args) > 0 {
@@ -280,7 +282,8 @@ func main() {
 	stopChannel := make(chan bool)
 
 	go reader(networkConfiguration.server.port, stopChannel)
-	for i := 0; i <= len(networkConfiguration.clients); i++ {
+
+	for i := 0; i < len(networkConfiguration.clients); i++ {
 		go writer(networkConfiguration.clients[i].ip, networkConfiguration.clients[i].port, stopChannel)
 	}
 
