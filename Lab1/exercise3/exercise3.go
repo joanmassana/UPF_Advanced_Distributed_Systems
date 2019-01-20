@@ -3,15 +3,24 @@ package main
 import (
 	"bufio"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"libraries/newLines"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
+
+type networkConfig struct {
+	server 		networkAddress
+	clients 	[]networkAddress
+}
+
+type networkAddress struct {
+	ip 		string
+	port 	string
+}
 
 func receiveFile(baseDir, filename string, size int64, connection net.Conn) error {
 
@@ -212,32 +221,68 @@ func writer(otherIP, otherPort string, stopChannel chan bool) {
 	stopChannel <- true
 }
 
+func getNetworkConfig(configFilePath string) networkConfig {
+
+	var config networkConfig
+
+	addresses, _ := fileToLines(configFilePath)
+
+	config.server = getNetworkAddress(addresses[0])
+	for i := 1; i <= len(addresses); i++ {
+		client := getNetworkAddress(addresses[i])
+		config.clients = append(config.clients, client)
+	}
+
+	return config
+}
+
+func fileToLines(filePath string) (lines []string, err error) {
+	f, err := os.Open("Lab1/exercise3/files/configFiles/" + filePath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	err = scanner.Err()
+	return
+}
+
+func getNetworkAddress(address string) networkAddress{
+	var networkAddress networkAddress
+
+	addressSlice := strings.Split(address, ":")
+	networkAddress.ip = addressSlice[0]
+	networkAddress.port = addressSlice[1]
+
+	return networkAddress
+}
+
 func main() {
 
 	log.SetLevel(log.WarnLevel)
+	var networkConfiguration networkConfig
 
-	otherIP := "127.0.0.1"
-	otherPort := ":6002"
-	thisPort := ":6001"
+	if len(os.Args) > 0 {
+		//Get config file as argument
+		configFilePath := os.Args[1]
 
-	if len(os.Args) > 1 {
-		log.Info("Ports set by arguments...")
+		//get networkConfig struct
+		networkConfiguration = getNetworkConfig(configFilePath)
 
-		thisPort = os.Args[1]
-		if !strings.HasPrefix(":", thisPort) {
-			thisPort = ":" + thisPort
-		}
-
-		otherPort = os.Args[2]
-		if !strings.HasPrefix(":", otherPort) {
-			otherPort = ":" + otherPort
-		}
+	} else {
+		log.Error("Argument missing: Config file.")
 	}
 
 	stopChannel := make(chan bool)
 
-	go reader(thisPort, stopChannel)
-	go writer(otherIP, otherPort, stopChannel)
+	go reader(networkConfiguration.server.port, stopChannel)
+	for i := 0; i <= len(networkConfiguration.clients); i++ {
+		go writer(networkConfiguration.clients[i].ip, networkConfiguration.clients[i].port, stopChannel)
+	}
 
 	<-stopChannel
 
