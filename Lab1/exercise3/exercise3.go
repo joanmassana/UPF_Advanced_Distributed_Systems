@@ -3,22 +3,23 @@ package main
 import (
 	"bufio"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"libraries/newLines"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type networkConfig struct {
-	server 		networkAddress
-	clients 	[]networkAddress
+	server  networkAddress
+	clients []networkAddress
 }
 type networkAddress struct {
-	ip 		string
-	port 	string
+	ip   string
+	port string
 }
 
 func receiveFile(baseDir, filename string, size int64, connection net.Conn) error {
@@ -58,75 +59,79 @@ func receiveFile(baseDir, filename string, size int64, connection net.Conn) erro
 
 func readMessage(connection net.Conn, stopChannel chan bool) {
 
-	for {
-		reader := bufio.NewReader(connection)
-		data, readError := reader.ReadString('\n')
-		log.Debug("Data received: ", data);
-		if readError == nil {
+	//for {
+	reader := bufio.NewReader(connection)
+	data, readError := reader.ReadString('\n')
+	log.Debug("Data received: ", data)
+	if readError == nil {
 
-			data = newLines.EraseNewLines(data)
-			if data == "stop" {
-				log.Info("READER - Stop received! Shutting down...")
-				stopChannel <- true
-
-			} else {
-				filename := data
-				log.Debug("READER - Filename received: ", filename)
-
-				data, readError = reader.ReadString('\n')
-				if readError == nil {
-
-					data = newLines.EraseNewLines(data)
-
-					var size int64
-					size, readError = strconv.ParseInt(data, 10, 64)
-					if readError == nil {
-						log.Debug("READER - File size received: ", data)
-
-						baseDir := "Lab1/exercise3/files/received/"
-						receiveFileError := receiveFile(baseDir, filename, size, connection)
-						if receiveFileError != nil {
-							log.Error("READER - Error receiving file: ", receiveFileError)
-						}
-					} else {
-						log.Error("READER - Error receiving file size: ", readError)
-					}
-				}
-			}
+		data = newLines.EraseNewLines(data)
+		if data == "stop" {
+			log.Info("READER - Stop received! Shutting down...")
+			stopChannel <- true
 
 		} else {
-			log.Error("READER - Error reading message: ", readError)
-			if readError == io.EOF {
-				log.Error("READER - EOF found, shuting down...")
-				break
+			filename := data
+			log.Debug("READER - Filename received: ", filename)
+
+			data, readError = reader.ReadString('\n')
+			if readError == nil {
+
+				data = newLines.EraseNewLines(data)
+
+				var size int64
+				size, readError = strconv.ParseInt(data, 10, 64)
+				if readError == nil {
+					log.Debug("READER - File size received: ", data)
+
+					baseDir := "Lab1/exercise3/files/received/"
+					receiveFileError := receiveFile(baseDir, filename, size, connection)
+					if receiveFileError != nil {
+						log.Error("READER - Error receiving file: ", receiveFileError)
+					} else {
+						fmt.Fprintf(connection, "\n")
+					}
+				} else {
+					log.Error("READER - Error receiving file size: ", readError)
+				}
 			}
 		}
+
+	} else {
+		log.Error("READER - Error reading message: ", readError)
+		if readError == io.EOF {
+			log.Error("READER - EOF found, shuting down...")
+			//break
+		}
 	}
+	//}
 }
 
 func reader(port string, stopChannel chan bool) {
 
 	log.Info("READER - Listening on port", port)
+	for {
 
-	// listen on all interfaces
-	listener, listenerError := net.Listen("tcp", port)
+		// listen on all interfaces
+		listener, listenerError := net.Listen("tcp", port)
 
-	if listenerError == nil {
-		for {
+		if listenerError == nil {
 			connection, connectionError := listener.Accept()
 
 			if connectionError == nil {
 				log.Info("READER - Connection received at server")
 
-				go readMessage(connection, stopChannel)
+				readMessage(connection, stopChannel)
+				connection.Close()
 
 			} else {
 				log.Error("READER - Error while accepting connection at server: ", connectionError)
 			}
-		}
+			listener.Close()
 
-	} else {
-		log.Error("READER - Error while starting server: ", listenerError)
+		} else {
+			log.Error("READER - Error while starting server: ", listenerError)
+		}
 	}
 }
 
@@ -176,13 +181,13 @@ func sendFile(baseDir, filename string, connection net.Conn) error {
 
 func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 
-	//Establish connections with other nodes
-	var connections []net.Conn
-	for _, client := range networkConfiguration.clients {
-		newConnection := dial(client.ip, client.port)
-		connections = append(connections, newConnection)
-	}
-
+	/* 	//Establish connections with other nodes
+	   	var connections []net.Conn
+	   	for _, client := range networkConfiguration.clients {
+	   		newConnection := dial(client.ip, client.port)
+	   		connections = append(connections, newConnection)
+	   	}
+	*/
 	for {
 		// read in input from stdin
 		reader := bufio.NewReader(os.Stdin)
@@ -194,8 +199,14 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 			text = newLines.EraseNewLines(text)
 			if "stop" == text {
 				log.Info("WRITER - Should stop")
-				for _, connection := range connections {
+				for _, client := range networkConfiguration.clients {
+					connection, connectionError := net.Dial("tcp", client.ip+client.port)
+					if connectionError != nil {
+						log.Info(client.ip+client.port, " is absent!")
+						continue
+					}
 					fmt.Fprintf(connection, text+"\n") //TODO Handle error
+					connection.Close()
 				}
 				stopChannel <- true
 			} else if text == "" {
@@ -203,7 +214,14 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 
 			} else {
 				baseDir := "Lab1/exercise3/files/"
-				for _, connection := range connections {
+				for _, client := range networkConfiguration.clients {
+
+					connection, connectionError := net.Dial("tcp", client.ip+client.port)
+					if connectionError != nil {
+						log.Info(client.ip+client.port, " is absent!")
+						continue
+					}
+
 					log.Debug("Connection:: ", connection)
 					sendFileError := sendFile(baseDir, text, connection)
 					if sendFileError != nil {
@@ -213,6 +231,9 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 					} else {
 						log.Info("File sent")
 					}
+					bufio.NewReader(connection).ReadString('\n')
+
+					connection.Close()
 				}
 			}
 		} else {
@@ -221,7 +242,7 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 	}
 }
 
-func dial(otherIP, otherPort string) net.Conn{
+func dial(otherIP, otherPort string) net.Conn {
 
 	// connect to this socket
 	connection, connectionError := net.Dial("tcp", otherIP+otherPort)
@@ -268,7 +289,7 @@ func fileToLines(filePath string) (lines []string, err error) {
 	return
 }
 
-func getNetworkAddress(address string) networkAddress{
+func getNetworkAddress(address string) networkAddress {
 	var networkAddress networkAddress
 
 	addressSlice := strings.Split(address, ":")
@@ -295,7 +316,7 @@ func main() {
 		log.Error("Argument missing: Config file.")
 	}
 
-	go reader(networkConfiguration.server.port,stopChannel)
+	go reader(networkConfiguration.server.port, stopChannel)
 	go getUserInput(networkConfiguration, stopChannel)
 
 	<-stopChannel
