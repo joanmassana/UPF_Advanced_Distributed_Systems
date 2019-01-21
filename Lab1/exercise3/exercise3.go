@@ -40,7 +40,7 @@ func receiveFile(baseDir, filename string, size int64, connection net.Conn) erro
 				//Get file details
 				file, _ := destinationFile.Stat()
 				fmt.Println("Name of file: ", file.Name())
-				fmt.Println("Size of file", file.Size())
+				fmt.Println("Size of file: ", file.Size())
 
 			} else {
 				log.Error("READER - Error receiving file: ", receiveFileError)
@@ -180,9 +180,7 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 	var connections []net.Conn
 	for _, client := range networkConfiguration.clients {
 		newConnection := dial(client.ip, client.port)
-		log.Debug("New connection: ", newConnection)
 		connections = append(connections, newConnection)
-		log.Debug("All connections: ", connections)
 	}
 
 	for {
@@ -198,8 +196,8 @@ func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
 				log.Info("WRITER - Should stop")
 				for _, connection := range connections {
 					fmt.Fprintf(connection, text+"\n") //TODO Handle error
-					stopChannel <- true
 				}
+				stopChannel <- true
 			} else if text == "" {
 				// do nothing
 
