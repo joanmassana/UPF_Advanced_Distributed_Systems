@@ -174,7 +174,16 @@ func sendFile(baseDir, filename string, connection net.Conn) error {
 	return sendFileError
 }
 
-func getUserInput(openConnections *[]net.Conn, stopChannel chan bool) {
+func getUserInput(networkConfiguration networkConfig, stopChannel chan bool) {
+
+	//Establish connections with other nodes
+	var connections []net.Conn
+	for _, client := range networkConfiguration.clients {
+		newConnection := dial(client.ip, client.port)
+		log.Debug("New connection: ", newConnection)
+		connections = append(connections, newConnection)
+		log.Debug("All connections: ", connections)
+	}
 
 	for {
 		// read in input from stdin
@@ -187,7 +196,7 @@ func getUserInput(openConnections *[]net.Conn, stopChannel chan bool) {
 			text = newLines.EraseNewLines(text)
 			if "stop" == text {
 				log.Info("WRITER - Should stop")
-				for _, connection := range *openConnections {
+				for _, connection := range connections {
 					fmt.Fprintf(connection, text+"\n") //TODO Handle error
 					stopChannel <- true
 				}
@@ -196,7 +205,8 @@ func getUserInput(openConnections *[]net.Conn, stopChannel chan bool) {
 
 			} else {
 				baseDir := "Lab1/exercise3/files/"
-				for _, connection := range *openConnections {
+				for _, connection := range connections {
+					log.Debug("Connection:: ", connection)
 					sendFileError := sendFile(baseDir, text, connection)
 					if sendFileError != nil {
 						log.Error("WRITER - Something went wrong while sending the file: ", sendFileError)
@@ -213,7 +223,7 @@ func getUserInput(openConnections *[]net.Conn, stopChannel chan bool) {
 	}
 }
 
-func dial(otherIP, otherPort string, clientConnections *[]net.Conn) {
+func dial(otherIP, otherPort string) net.Conn{
 
 	// connect to this socket
 	connection, connectionError := net.Dial("tcp", otherIP+otherPort)
@@ -223,8 +233,8 @@ func dial(otherIP, otherPort string, clientConnections *[]net.Conn) {
 
 	log.Info("WRITER - Succesful dial - Connected to ", otherIP+otherPort)
 
-	*clientConnections = append(*clientConnections, connection)
-	log.Info("Open Connections: ", *clientConnections)
+	return connection
+
 }
 
 func getNetworkConfig(configFilePath string) networkConfig {
@@ -274,7 +284,6 @@ func main() {
 
 	log.SetLevel(log.DebugLevel)
 	var networkConfiguration networkConfig
-	var connections []net.Conn
 	stopChannel := make(chan bool)
 
 	if len(os.Args) > 0 {
@@ -289,12 +298,7 @@ func main() {
 	}
 
 	go reader(networkConfiguration.server.port,stopChannel)
-
-	for i := 0; i < len(networkConfiguration.clients); i++ {
-		dial(networkConfiguration.clients[i].ip, networkConfiguration.clients[i].port, &connections)
-	}
-
-	go getUserInput(&connections, stopChannel)
+	go getUserInput(networkConfiguration, stopChannel)
 
 	<-stopChannel
 
