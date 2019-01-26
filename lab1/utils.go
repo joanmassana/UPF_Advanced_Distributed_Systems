@@ -1,4 +1,4 @@
-package ads
+package lab1
 
 import "strings"
 
