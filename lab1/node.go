@@ -87,10 +87,12 @@ func readMessage(connection net.Conn, stopChannel chan bool) error {
 
 func (node *Node) listenNeighbours() error {
 
+	log.Info("READER - Starting listener at port: ", node.Port)
 	listener, listenerError := net.Listen("tcp", node.Port)
 	if listenerError != nil {
 		return listenerError
 	}
+	log.Info("READER - Listening...")
 
 	for {
 

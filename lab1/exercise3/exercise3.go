@@ -22,7 +22,7 @@ func createNode(filepath string) (node lab1.Node, err error) {
 	scanner.Scan()
 	hostData := scanner.Text()
 	slice := strings.Split(hostData, ":")
-	node.Port = slice[1]
+	node.Port = ":" + slice[1]
 
 	for scanner.Scan() {
 		node.Neighbours = append(node.Neighbours, scanner.Text())
