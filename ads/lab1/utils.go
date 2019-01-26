@@ -1,8 +1,8 @@
-package newLines
+package ads
 
 import "strings"
 
-// normalizeNewLines normalizes \r\n (windows) and \r (mac)
+// NormalizeNewLines normalizes \r\n (windows) and \r (mac)
 // into \n (unix)
 func NormalizeNewLines(inputText string) string {
 	// replace CR LF \r\n (windows) with LF \n (unix)
@@ -13,7 +13,7 @@ func NormalizeNewLines(inputText string) string {
 	return inputText
 }
 
-// eraseNewLines erases \r\n (windows) and \r (mac) and \n (unix)
+// EraseNewLines erases \r\n (windows) and \r (mac) and \n (unix)
 func EraseNewLines(inputText string) string {
 	// replace CR LF \n (windows / linux)
 	inputText = strings.Replace(inputText, "\n", "", -1)
