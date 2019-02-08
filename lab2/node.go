@@ -32,25 +32,39 @@ func (node *Node) readMessage(connection net.Conn, stopChannel chan bool) error 
 	}
 	log.Debug("READER - Raw data received: ", data)
 
-
 	text := EraseNewLines(data)
 	if text == "stop" {
 		log.Info("READER - Stop received! Shutting down...")
+		//Propagate stop through the network before stopping process
+		for neighbour := range node.Neighbours {
+			go connectAndSend(neighbour, "stop", stopChannel)
+		}
 		stopChannel <- true
 
 	} else {
+		//Print received host + ID from parent
 		fmt.Println(text)
+
+		//Keep track of received messaged
 		node.updateReceivedMap(text)
 
-		if hasReceivedAllNeighbours(node) {
-			//sendToParent
+		if hasReceivedFromAllNeighbours(node) {
+			if node.IsInitiator {
+				//decide -> stop
+				for neighbour := range node.Neighbours {
+					go connectAndSend(neighbour, "stop", stopChannel)
+				}
+			} else {
+				go connectAndSend(node.Parent, "127.0.0.1" + node.Port + ":" + node.Id, stopChannel)
+			}
 		} else {
 			stopSent := make(chan bool)
 			for neighbour := range node.Neighbours {
-				go connectAndSend(neighbour, "127.0.0.1" + node.Port + ":" + node.Id, stopSent)
+				if neighbour != node.Parent {
+					go connectAndSend(neighbour, "127.0.0.1" + node.Port + ":" + node.Id, stopSent)
+				}
 			}
 		}
-
 	}
 
 	return nil
@@ -66,13 +80,13 @@ func (node *Node) updateReceivedMap(message string){
 	}
 }
 
-func hasReceivedAllNeighbours(node *Node) bool{
+func hasReceivedFromAllNeighbours(node *Node) bool{
 	for _, value := range node.Neighbours {
 		if !value {
-			return false;
+			return false
 		}
 	}
-	return true;
+	return true
 }
 
 func (node *Node) listenNeighbours() error {
@@ -107,7 +121,7 @@ func sendMessage(message string, connection net.Conn) error {
 }
 
 
-func connectAndSend(neighbour, message string, stopSent chan bool) error {
+func connectAndSend(neighbour string, message string, stopSent chan bool) error {
 
 	log.Info("WRITER - trying to connect to ", neighbour)
 	connection, connectionError := net.Dial("tcp", neighbour)
