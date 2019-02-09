@@ -49,12 +49,12 @@ func (node Node2) readMessage(connection net.Conn, incoming chan Message) {
 // channel to wait for incoming messages
 func (node *Node2) Listen(incoming chan Message) error {
 
-	log.Info("Connect - Starting listener at port: ", node.Port)
+	log.Info("Listen - Starting listener at port: ", node.Port)
 	listener, listenerError := net.Listen("tcp", node.Port)
 	if listenerError != nil {
 		return listenerError
 	}
-	log.Info("Connect - Listening...")
+	log.Info("Listen - Listening...")
 
 	for {
 
@@ -62,7 +62,7 @@ func (node *Node2) Listen(incoming chan Message) error {
 		if connectionError != nil {
 			return connectionError
 		}
-		log.Info("Connect - Connection received at server")
+		log.Info("Listen - Connection received at server")
 
 		go node.readMessage(connection, incoming)
 	}
