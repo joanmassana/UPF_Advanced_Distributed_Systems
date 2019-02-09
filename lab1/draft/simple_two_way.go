@@ -66,7 +66,7 @@ func dialAndInput(ip, port string, stop chan bool) {
 	}
 }
 
-func main() {
+func mainSimple() {
 
 	otherIP := "127.0.0.1"
 	otherPort := ":6002"
