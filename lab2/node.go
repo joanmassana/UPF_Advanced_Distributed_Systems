@@ -3,20 +3,21 @@ package lab2
 import (
 	"bufio"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Node represents a node in a network, listening in his own port
 // and sending messages to its neighbors
 type Node struct {
-	Port        string   // Node listening port
+	Port        string          // Node listening port
 	Neighbours  map[string]bool // Node neighbours
 	StopChannel chan bool
-	Id string
-	Parent string
+	ID          string
+	Parent      string
 	IsInitiator bool
 	// Connnections to its neighbours
 }
@@ -55,13 +56,13 @@ func (node *Node) readMessage(connection net.Conn, stopChannel chan bool) error 
 					go connectAndSend(neighbour, "stop", stopChannel)
 				}
 			} else {
-				go connectAndSend(node.Parent, "127.0.0.1" + node.Port + ":" + node.Id, stopChannel)
+				go connectAndSend(node.Parent, "127.0.0.1"+node.Port+":"+node.ID, stopChannel)
 			}
 		} else {
 			stopSent := make(chan bool)
 			for neighbour := range node.Neighbours {
 				if neighbour != node.Parent {
-					go connectAndSend(neighbour, "127.0.0.1" + node.Port + ":" + node.Id, stopSent)
+					go connectAndSend(neighbour, "127.0.0.1"+node.Port+":"+node.ID, stopSent)
 				}
 			}
 		}
@@ -70,7 +71,7 @@ func (node *Node) readMessage(connection net.Conn, stopChannel chan bool) error 
 	return nil
 }
 
-func (node *Node) updateReceivedMap(message string){
+func (node *Node) updateReceivedMap(message string) {
 	slice := strings.Split(message, ":")
 	host := slice[0] + slice[1]
 	node.Neighbours[host] = true
@@ -80,7 +81,7 @@ func (node *Node) updateReceivedMap(message string){
 	}
 }
 
-func hasReceivedFromAllNeighbours(node *Node) bool{
+func hasReceivedFromAllNeighbours(node *Node) bool {
 	for _, value := range node.Neighbours {
 		if !value {
 			return false
@@ -119,7 +120,6 @@ func sendMessage(message string, connection net.Conn) error {
 
 	return nil
 }
-
 
 func connectAndSend(neighbour string, message string, stopSent chan bool) error {
 
@@ -173,7 +173,7 @@ func (node *Node) waitUserInput() {
 		}
 
 		stopSent := make(chan bool)
-		for _, neighbour := range node.Neighbours {
+		for neighbour := range node.Neighbours {
 			go connectAndSend(neighbour, text, stopSent)
 		}
 
@@ -201,9 +201,9 @@ func main() {
 
 	node := Node{
 		Port: ":6001",
-		Neighbours: []string{
-			"127.0.0.1:6002",
-			"127.0.0.1:6003",
+		Neighbours: map[string]bool{
+			"127.0.0.1:6002": false,
+			"127.0.0.1:6003": false,
 		},
 		StopChannel: stopChannel,
 	}
