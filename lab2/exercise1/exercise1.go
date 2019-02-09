@@ -34,7 +34,7 @@ func createNode(filepath string) (node lab2.Node, err error) {
 	return node, err
 }
 
-func main() {
+func mainExercise1() {
 
 	log.SetLevel(log.DebugLevel)
 
