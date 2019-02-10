@@ -24,7 +24,10 @@ func createNode(filepath string) (node lab2.Node, err error) {
 	slice := strings.Split(hostData, ":")
 	node.Port = ":" + slice[1]
 	node.ID = slice[2]
-	node.IsInitiator = slice[3] == "*"
+	if len(slice) > 3 {
+		node.IsInitiator = slice[3] == "*"
+	}
+
 
 	node.Neighbours = make(map[string]bool)
 	for scanner.Scan() {
@@ -34,7 +37,7 @@ func createNode(filepath string) (node lab2.Node, err error) {
 	return node, err
 }
 
-func mainExercise1() {
+func main() {
 
 	log.SetLevel(log.DebugLevel)
 

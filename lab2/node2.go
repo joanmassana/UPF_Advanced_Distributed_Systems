@@ -1,16 +1,16 @@
 package lab2
 
 import (
-	"bufio"
+	"encoding/gob"
 	"fmt"
-	"net"
-
 	log "github.com/sirupsen/logrus"
+	"net"
 )
 
 // Node2 represents a node in a network, listening in his own port
 // and sending messages to its neighbors
 type Node2 struct {
+	Address 	string			// Node Address
 	Port        string          // Node listening port
 	Neighbours  map[string]bool // Node neighbours
 	ID          string
@@ -20,43 +20,38 @@ type Node2 struct {
 
 // Message contain the information related to a received message.
 type Message struct {
-	ID      string // ID of the sender
-	Content string // content of the message
-	Error   error  // contains the error, if any
+	OriginAddress string 	//	IP of sender
+	OriginPort   string 	//	port of sender
+	ID            string 	// 	ID of the sender
+	Content       string 	// 	content of the message
+	Error         error  	// 	contains the error, if any
 }
 
 func (node Node2) readMessage(connection net.Conn, incoming chan Message) {
 	defer connection.Close()
 
-	message := Message{
-		ID:      connection.RemoteAddr().String(),
-		Content: "",
-		Error:   nil,
-	}
-	reader := bufio.NewReader(connection)
-
-	data, readError := reader.ReadString('\n')
-	if readError != nil {
-		message.Error = readError
+	//Decode message received from connection
+	messageDecoder := gob.NewDecoder(connection)
+	message := Message{}
+	decodeError := messageDecoder.Decode(&message)
+	if decodeError != nil {
+		log.Error(decodeError)
 	} else {
-		log.Debug("readMessage - Data received: ", data)
-
-		text := EraseNewLines(data)
-		message.Content = text
+		log.Debug("Message received from node ", message.ID + " - " + message.OriginAddress + message.OriginPort)
 	}
+
 	incoming <- message
 }
 
-// Listen stablishes a connection to all the neighbours, returning
+// Listen establishes a connection to all the neighbours, returning
 // channel to wait for incoming messages
 func (node *Node2) Listen(incoming chan Message) error {
-
 	log.Debug("Listen - Starting listener at port: ", node.Port)
 	listener, listenerError := net.Listen("tcp", node.Port)
 	if listenerError != nil {
 		return listenerError
 	}
-	log.Debug("Listen - Listening...")
+	fmt.Println("Node is Online - Listening at port: ", node.Port)
 
 	for {
 
@@ -71,28 +66,35 @@ func (node *Node2) Listen(incoming chan Message) error {
 }
 
 // SendMessage sends a message to a specific host
-func (node *Node2) SendMessage(text string, host string, sent chan bool) {
+func (node *Node2) SendMessage(message Message, destination string, sent chan bool) {
 
-	connection, connectionError := net.Dial("tcp", host)
+	connection, connectionError := net.Dial("tcp", destination)
 	for connectionError != nil {
-		connection, connectionError = net.Dial("tcp", host)
+		connection, connectionError = net.Dial("tcp", destination)
 	}
 	defer connection.Close()
-	log.Debug("SendMessage - Connected to ", host)
+	log.Debug("SendMessage - Connected to ", destination)
 
-	_, writeConnError := fmt.Fprintf(connection, text+"\n")
-	if writeConnError != nil {
-		log.Error("SendMessage - Something went wrong while sending a message: ", writeConnError)
+	//Encode message and send to conenction
+	messageEncoder := gob.NewEncoder(connection)
+	messageToSend := message
+	encodeError := messageEncoder.Encode(messageToSend)
+	if encodeError != nil {
+		log.Error(encodeError)
+	} else {
+		log.Debug("Message sent to ", destination)
 	}
+
 
 	if sent != nil {
-		sent <- writeConnError != nil
+		sent <- encodeError != nil
 	}
+
 }
 
 // SendToAllNeighbours sends a message to all node's neighbours
-func (node *Node2) SendToAllNeighbours(text string, sent chan bool) {
+func (node *Node2) SendToAllNeighbours(message Message, sent chan bool) {
 	for neighbour := range node.Neighbours {
-		go node.SendMessage(text, neighbour, sent)
+		go node.SendMessage(message, neighbour, sent)
 	}
 }

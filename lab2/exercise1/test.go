@@ -4,10 +4,9 @@ import (
 	"ads/lab2"
 	"bufio"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // TestNode is a wrapper for implementing lab2/exercise1
@@ -17,47 +16,48 @@ type TestNode struct {
 }
 
 func (node *TestNode) onIncoming() {
-
+	printNodeInfo(node)
 	var incoming = make(chan lab2.Message)
 	go node.Listen(incoming)
 
 	// If it is a non-initiator, waits for the first message
 	// in order to set the parent
 	if !node.IsInitiator {
+
 		message := <-incoming
-		slice := strings.Split(message.Content, "#")
 
-		node.Parent = slice[0]
-		fmt.Println("Parent set to ", slice[0])
+		node.Parent = message.OriginAddress + message.OriginPort
+		fmt.Println("My parent is", message.ID + " - " + message.OriginAddress + message.OriginPort)
 
-		node.Neighbours[slice[0]] = true
+		node.Neighbours[message.OriginAddress+message.OriginPort] = true
 		node.responseCounter++
 	}
 
 	var sent = make(chan bool, len(node.Neighbours))
 	for neighbour, visited := range node.Neighbours {
 		if !visited {
-			go node.SendMessage(node.ID, neighbour, sent)
-			log.Debug("Message sent to ", neighbour)
+			message := buildMessage("", node)
+			log.Debug("Sending to: " + neighbour)
+			go node.SendMessage(message, neighbour, sent)
 		}
 	}
 
 	for {
 		log.Debug("onIncoming - Status ", node)
+		log.Debug("neighbors total", len(node.Neighbours))
 		message := <-incoming
 
-		slice := strings.Split(message.Content, "#")
-
-		node.Neighbours[slice[0]] = true
+		node.Neighbours[message.OriginAddress+message.OriginPort] = true
 		node.responseCounter++
 
 		if len(node.Neighbours) == node.responseCounter {
 			if node.IsInitiator {
-				fmt.Println("It's decided! I'm ", node.ID)
+				fmt.Println("Decision Event: I'm", node.ID)
 
 			} else {
-				fmt.Println("Responding to my parent! I'm ", node.ID)
-				node.SendMessage(node.ID, node.Parent, sent)
+				fmt.Println("To parent: I'm", node.ID)
+				message := buildMessage("", node)
+				node.SendMessage(message, node.Parent, sent)
 			}
 			break
 		}
@@ -66,11 +66,35 @@ func (node *TestNode) onIncoming() {
 	log.Debug("Waiting for messages to be sent...")
 	for range node.Neighbours {
 		<-sent
-		log.Info("Add one sent!")
+		log.Debug("Add one sent!")
 	}
 }
 
+func printNodeInfo(node *TestNode) {
+	fmt.Println("Node Info ------------------------------")
+	fmt.Printf("ID -> %s          isInitiator -> %t\n", node.ID, node.IsInitiator)
+	fmt.Printf("Address -> %s     Port -> %s\n", node.Address, node.Port)
+	fmt.Println("Neighbors")
+	for neighbour := range node.Neighbours {
+		fmt.Printf(neighbour + ", ")
+	}
+	fmt.Printf("\n")
+	fmt.Println("Parent ->", node.Parent)
+	fmt.Println("----------------------------------------")
+}
+
+func buildMessage(content string, node *TestNode) lab2.Message {
+	message := lab2.Message{
+		OriginAddress: node.Address,
+		OriginPort:    node.Port,
+		ID:            node.ID,
+		Content:       content,
+		Error:         nil}
+	return message
+}
+
 func loadNode(filepath string) (node TestNode, err error) {
+	log.Debug("Loading node...")
 	f, err := os.Open(filepath)
 	if err != nil {
 		return node, err
@@ -84,20 +108,26 @@ func loadNode(filepath string) (node TestNode, err error) {
 	hostData := scanner.Text()
 	slice := strings.Split(hostData, ":")
 
+	log.Debug("Init data in node...")
+
+	node.Address = slice[0]
 	node.Port = ":" + slice[1]
-	node.ID = slice[0] + ":" + slice[1] + "#" + slice[2]
+	node.ID = slice[2]
 	node.IsInitiator = len(slice) > 3 && slice[3] == "*"
 	node.responseCounter = 0
 
+	log.Debug("Setting neighbor map...")
 	node.Neighbours = make(map[string]bool)
 	for scanner.Scan() {
 		node.Neighbours[scanner.Text()] = false
+
 	}
+	log.Debug("Neighbor map set...")
 	err = scanner.Err()
 	return node, err
 }
 
-func mainTest() {
+func main() {
 	log.SetLevel(log.InfoLevel)
 	log.Info("Running main test for node2...")
 
