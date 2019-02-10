@@ -1,0 +1,7 @@
+#!/bin/bash
+
+nodes=$2
+for ((i=1;i<=nodes;i++))
+do
+xterm -hold -e "echo $i; go run election.go konfigFile_$i$1.txt &&/bin/bash" &
+done

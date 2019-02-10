@@ -5,6 +5,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"strconv"
 )
 
 // Node represents a node in a network, listening in his own port
@@ -23,6 +24,7 @@ type Message struct {
 	OriginAddress string 	//	IP of sender
 	OriginPort   string 	//	port of sender
 	ID            string 	// 	ID of the sender
+	Num 			int
 	Content       string 	// 	content of the message
 	Error         error  	// 	contains the error, if any
 }
@@ -37,7 +39,7 @@ func (node Node) readMessage(connection net.Conn, incoming chan Message) {
 	if decodeError != nil {
 		log.Error(decodeError)
 	} else {
-		log.Debug("Message received from node ", message.ID + " - " + message.OriginAddress + message.OriginPort)
+		log.Debug("Message #" + strconv.Itoa(message.Num) + "received from node " + message.ID + " at " + message.OriginAddress + message.OriginPort + " Content is: " + message.Content)
 	}
 
 	incoming <- message
@@ -73,16 +75,15 @@ func (node *Node) SendMessage(message Message, destination string, sent chan boo
 		connection, connectionError = net.Dial("tcp", destination)
 	}
 	defer connection.Close()
-	log.Debug("SendMessage - Connected to ", destination)
 
-	//Encode message and send to conenction
+	//Encode message and send to connection
 	messageEncoder := gob.NewEncoder(connection)
 	messageToSend := message
 	encodeError := messageEncoder.Encode(messageToSend)
 	if encodeError != nil {
 		log.Error(encodeError)
 	} else {
-		log.Debug("Message sent to ", destination)
+		log.Debug("Message #" + strconv.Itoa(message.Num) + "sent to " + destination + " Content is: " + message.Content)
 	}
 
 
