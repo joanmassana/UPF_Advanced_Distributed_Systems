@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TestNode is a wrapper for testing Node2
+// TestNode is a wrapper for testing Node
 type TestNode struct {
 	lab1.Node2
 }

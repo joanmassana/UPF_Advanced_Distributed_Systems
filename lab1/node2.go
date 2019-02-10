@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Node2 represents a node in a network, listening in his own port
+// Node represents a node in a network, listening in his own port
 // and sending messages to its neighbors
 type Node2 struct {
 	Port        string    // Node listening port
