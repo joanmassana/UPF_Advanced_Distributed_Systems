@@ -6,6 +6,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -43,9 +44,13 @@ func (node *TestNode) onIncoming() {
 
 		log.Debug("Incoming Message. Content is" + message.Content + ". Our largestId is" + node.largestId)
 
-		if message.Content > node.largestId {
+		content, _ := strconv.Atoi(message.Content)
+		largestId, _ := strconv.Atoi(node.largestId)
+
+		if content > largestId {
 			log.Debug("Message ID larger")
 			node.largestId = message.Content
+			log.Debug("LargestId set to " + node.largestId)
 			//reset neighbors to not sent
 			for neighbour := range node.Neighbours {
 				node.Neighbours[neighbour] = false
@@ -55,6 +60,7 @@ func (node *TestNode) onIncoming() {
 			node.responseCounter = 0
 			//Set sender as parent
 			node.Parent = message.OriginAddress + message.OriginPort
+			log.Debug(node.Parent + " is now my parent")
 			node.Neighbours[message.OriginAddress + message.OriginPort] = true
 			node.responseCounter++
 			//send messages to neighbors with new largest id
@@ -69,9 +75,9 @@ func (node *TestNode) onIncoming() {
 				message := buildMessage(node.largestId, node, count)
 				count++
 				node.SendMessage(message, node.Parent, sent)
-				break
+
 			}
-		} else if message.Content < node.largestId {
+		} else if content < largestId {
 			//Do nothing
 			log.Debug("Message ID smaller" )
 
@@ -89,7 +95,7 @@ func (node *TestNode) onIncoming() {
 					count++
 					node.SendMessage(message, node.Parent, sent)
 				}
-				break
+
 			}
 		}
 	}
