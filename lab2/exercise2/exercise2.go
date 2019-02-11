@@ -18,6 +18,37 @@ type TestNode struct {
 	largestId       string
 }
 
+func (node *TestNode) stop(parent string, incoming chan lab2.Message) {
+	message := buildMessage("stop", node, 0)
+
+	stopSent := make(chan bool, len(node.Neighbours))
+	for neighbour := range node.Neighbours {
+		if neighbour != parent {
+			go node.SendMessage(message, neighbour, stopSent)
+		}
+	}
+
+	for i := 0; i < len(node.Neighbours)-1; i++ {
+		<-stopSent
+		log.Debug("Stop sent!")
+	}
+
+	stoppedMessage := buildMessage("stopped", node, 0)
+
+	for i := 0; i < len(node.Neighbours)-1; {
+		message := <-incoming
+		if message.Content == "stopped" {
+			i++
+		} else if message.Content == "stop" {
+			go node.SendMessage(stoppedMessage, message.OriginAddress+message.OriginPort, nil)
+		}
+	}
+
+	if parent != "" {
+		node.SendMessage(stoppedMessage, parent, nil)
+	}
+}
+
 func (node *TestNode) onIncoming() {
 	printNodeInfo(node)
 	var incoming = make(chan lab2.Message)
@@ -45,7 +76,7 @@ func (node *TestNode) onIncoming() {
 
 		log.Debug("Incoming Message. Content is" + message.Content + ". Our largestId is" + node.largestId)
 		if message.Content == "stop" {
-			return
+			break
 		}
 		content, _ := strconv.Atoi(message.Content)
 		largestId, _ := strconv.Atoi(node.largestId)
@@ -92,16 +123,8 @@ func (node *TestNode) onIncoming() {
 			if len(node.Neighbours) == node.responseCounter {
 				if node.IsInitiator && node.ID == node.largestId {
 					fmt.Println("---- DECISION EVENT ----> PROCESS w/ ID #" + node.ID + ": I'm leader!")
-					message := buildMessage("stop", node, count)
 
-					stopSent := make(chan bool, len(node.Neighbours))
-					node.SendToAllNeighbours(message, stopSent)
-					for range node.Neighbours {
-						<-stopSent
-						log.Debug("Add one sent!")
-					}
-
-					return
+					break
 				} else {
 					message := buildMessage(node.largestId, node, count)
 					count++
@@ -111,12 +134,7 @@ func (node *TestNode) onIncoming() {
 			}
 		}
 	}
-
-	log.Debug("Waiting for messages to be sent...")
-	for range node.Neighbours {
-		<-sent
-		log.Debug("Add one sent!")
-	}
+	node.stop(node.Parent, incoming)
 }
 
 func printNodeInfo(node *TestNode) {
