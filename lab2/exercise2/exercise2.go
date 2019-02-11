@@ -4,17 +4,18 @@ import (
 	"ads/lab2"
 	"bufio"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // TestNode is a wrapper for implementing lab2/exercise2
 type TestNode struct {
 	lab2.Node
 	responseCounter int
-	largestId string
+	largestId       string
 }
 
 func (node *TestNode) onIncoming() {
@@ -43,7 +44,9 @@ func (node *TestNode) onIncoming() {
 		message := <-incoming
 
 		log.Debug("Incoming Message. Content is" + message.Content + ". Our largestId is" + node.largestId)
-
+		if message.Content == "stop" {
+			return
+		}
 		content, _ := strconv.Atoi(message.Content)
 		largestId, _ := strconv.Atoi(node.largestId)
 
@@ -61,7 +64,7 @@ func (node *TestNode) onIncoming() {
 			//Set sender as parent
 			node.Parent = message.OriginAddress + message.OriginPort
 			log.Debug(node.Parent + " is now my parent")
-			node.Neighbours[message.OriginAddress + message.OriginPort] = true
+			node.Neighbours[message.OriginAddress+message.OriginPort] = true
 			node.responseCounter++
 			//send messages to neighbors with new largest id
 			for neighbour, visited := range node.Neighbours {
@@ -79,16 +82,25 @@ func (node *TestNode) onIncoming() {
 			}
 		} else if content < largestId {
 			//Do nothing
-			log.Debug("Message ID smaller" )
+			log.Debug("Message ID smaller")
 
 		} else {
-			log.Debug("Message ID equal" )
+			log.Debug("Message ID equal")
 			node.Neighbours[message.OriginAddress+message.OriginPort] = true
 			node.responseCounter++
 
 			if len(node.Neighbours) == node.responseCounter {
-				if node.IsInitiator && node.ID == node.largestId{
+				if node.IsInitiator && node.ID == node.largestId {
 					fmt.Println("---- DECISION EVENT ----> PROCESS w/ ID #" + node.ID + ": I'm leader!")
+					message := buildMessage("stop", node, count)
+
+					stopSent := make(chan bool, len(node.Neighbours))
+					node.SendToAllNeighbours(message, stopSent)
+					for range node.Neighbours {
+						<-stopSent
+						log.Debug("Add one sent!")
+					}
+
 					return
 				} else {
 					message := buildMessage(node.largestId, node, count)
@@ -125,7 +137,7 @@ func buildMessage(content string, node *TestNode, count int) lab2.Message {
 		OriginAddress: node.Address,
 		OriginPort:    node.Port,
 		ID:            node.ID,
-		Num: 			count,
+		Num:           count,
 		Content:       content,
 		Error:         nil}
 	return message
