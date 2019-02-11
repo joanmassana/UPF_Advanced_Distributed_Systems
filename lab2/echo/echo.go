@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// TestNode is a wrapper for implementing lab2/exercise1
+// TestNode is a wrapper for implementing lab2/echo
 type TestNode struct {
 	lab2.Node
 	responseCounter int
@@ -138,7 +138,7 @@ func main() {
 
 	log.Info("Reading configuration file...")
 
-	configDir := "ads/lab2/exercise1/files/echoConfig/"
+	configDir := "ads/lab2/echo/files/echoConfig/"
 	node, err := loadNode(configDir + os.Args[1])
 	if err != nil {
 		log.Error("Error creating the node!", err)
