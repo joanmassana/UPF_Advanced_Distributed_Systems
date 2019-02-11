@@ -100,11 +100,6 @@ func (node *TestNode) onIncoming() {
 		}
 	}
 
-	log.Debug("Waiting for messages to be sent...")
-	for range node.Neighbours {
-		<-sent
-		log.Debug("Add one sent!")
-	}
 }
 
 func printNodeInfo(node *TestNode) {
@@ -167,7 +162,7 @@ func loadNode(filepath string) (node TestNode, err error) {
 }
 
 func main() {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 	log.Info("Running main test for node2...")
 
 	if len(os.Args) < 2 {
