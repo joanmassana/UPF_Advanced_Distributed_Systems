@@ -1,9 +1,10 @@
 package main
 
 import (
-	"ads/lab2"
+	"ads/lab3"
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -11,15 +12,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TestNode is a wrapper for implementing lab2/exercise2
+// TestNode is a wrapper for implementing 3/exercise2
 type TestNode struct {
-	lab2.Node
+	lab3.Node
 	responseCounter int
-	largestId       string
+	largestId       int
+	networkSize 	int
 }
 
-func (node *TestNode) stop(parent string, incoming chan lab2.Message) {
-	message := buildMessage("stop", node, 0)
+func (node *TestNode) stop(parent string, incoming chan lab3.Message) {
+	message := buildMessage("stop", node, 0, 0)
 
 	stopSent := make(chan bool, len(node.Neighbours))
 	for neighbour := range node.Neighbours {
@@ -33,7 +35,7 @@ func (node *TestNode) stop(parent string, incoming chan lab2.Message) {
 		log.Debug("Stop sent!")
 	}
 
-	stoppedMessage := buildMessage("stopped", node, 0)
+	stoppedMessage := buildMessage("stopped", node, 0, 0)
 
 	for i := 0; i < len(node.Neighbours)-1; {
 		message := <-incoming
@@ -51,95 +53,116 @@ func (node *TestNode) stop(parent string, incoming chan lab2.Message) {
 
 func (node *TestNode) onIncoming() {
 	printNodeInfo(node)
-	var incoming = make(chan lab2.Message)
+	var incoming = make(chan lab3.Message)
 	go node.Listen(incoming)
-	count := 0
 
+	var round = 0
+	var subTreeSize = 0
+	var nodesVisited = 0
+
+	var lastMessage lab3.Message
 	if node.IsInitiator {
-		node.largestId = node.ID
-		var sentFromInit = make(chan bool, len(node.Neighbours))
-		for neighbour := range node.Neighbours {
-			message := buildMessage(node.largestId, node, count)
-			count++
-			log.Debug("Sending from init to: " + neighbour)
-			go node.SendMessage(message, neighbour, sentFromInit)
-		}
-		for range node.Neighbours {
-			<-sentFromInit
-		}
+		lastMessage = node.startWave(round)
 	}
 
-	var sent = make(chan bool, len(node.Neighbours))
 	for {
-		//Wait for message
-		message := <-incoming
+		incomingMessage := <-incoming
 
-		log.Debug("Incoming Message. Content is" + message.Content + ". Our largestId is" + node.largestId)
-		if message.Content == "stop" {
-			break
-		}
-		content, _ := strconv.Atoi(message.Content)
-		largestId, _ := strconv.Atoi(node.largestId)
-
-		if content > largestId {
-			log.Debug("Message ID larger")
-			node.largestId = message.Content
-			log.Debug("LargestId set to " + node.largestId)
-			//reset neighbors to not sent
-			for neighbour := range node.Neighbours {
-				node.Neighbours[neighbour] = false
-			}
-			//reset sent channels
-			sent = make(chan bool, len(node.Neighbours))
-			node.responseCounter = 0
-			//Set sender as parent
-			node.Parent = message.OriginAddress + message.OriginPort
-			log.Debug(node.Parent + " is now my parent")
-			node.Neighbours[message.OriginAddress+message.OriginPort] = true
-			node.responseCounter++
-			//send messages to neighbors with new largest id
-			for neighbour, visited := range node.Neighbours {
-				if !visited {
-					message := buildMessage(node.largestId, node, count)
-					count++
-					go node.SendMessage(message, neighbour, sent)
-				}
-			}
-			if len(node.Neighbours) == node.responseCounter {
-				message := buildMessage(node.largestId, node, count)
-				count++
-				node.SendMessage(message, node.Parent, sent)
-
-			}
-		} else if content < largestId {
-			//Do nothing
-			log.Debug("Message ID smaller")
+		if !node.IsInitiator && node.Parent == "" {
+			subTreeSize = 0
+			nodesVisited = 0
+			lastMessage = node.joinWave(incomingMessage)
 
 		} else {
-			log.Debug("Message ID equal")
-			node.Neighbours[message.OriginAddress+message.OriginPort] = true
-			node.responseCounter++
-
-			if len(node.Neighbours) == node.responseCounter {
-				if node.IsInitiator && node.ID == node.largestId {
-					fmt.Println("---- DECISION EVENT ----> PROCESS w/ ID #" + node.ID + ": I'm leader!")
-
-					break
+			if incomingMessage.Round < lastMessage.Round {
+				// do nothing
+			} else if incomingMessage.Round > lastMessage.Round {
+				subTreeSize = 0
+				nodesVisited = 0
+				lastMessage = node.joinWave(incomingMessage)
+			} else {
+				incomingID, _ := strconv.Atoi(incomingMessage.Content)
+				if incomingID < lastMessage.ID {
+					// do nothing
+				} else if incomingID > lastMessage.ID {
+					subTreeSize = 0
+					nodesVisited = 0
+					lastMessage = node.joinWave(incomingMessage)
 				} else {
-					message := buildMessage(node.largestId, node, count)
-					count++
-					node.SendMessage(message, node.Parent, sent)
+					subTreeSize += incomingMessage.SubTreeSize
+					nodesVisited += 1
 				}
+			}
+		}
 
+		if !node.IsInitiator && nodesVisited == len(node.Neighbours) - 1 {
+			node.sendToParent(incomingMessage, subTreeSize)
+
+		} else if nodesVisited == len(node.Neighbours) {
+			if subTreeSize == node.networkSize {
+				// Leader
+				fmt.Println("Leader")
+
+			} else {
+				subTreeSize = 0
+				nodesVisited = 0
+				round++
+				node.startWave(round)
 			}
 		}
 	}
-	node.stop(node.Parent, incoming)
 }
+
+func (node *TestNode) sendToParent(message lab3.Message, subTreeSize int) {
+	messageToParent := buildMessage(message.Content, node, message.Round, subTreeSize + 1)
+
+	var sent = make(chan bool)
+	go node.SendMessage(messageToParent, node.Parent, sent)
+	<-sent
+}
+
+func (node *TestNode) startWave(round int) (message lab3.Message) {
+	node.setNeighborsToNotVisited()
+	return node.sendToChildren(strconv.Itoa(node.ID), round, 0)
+}
+
+func (node *TestNode) joinWave(message lab3.Message) lab3.Message {
+	node.setNeighborsToNotVisited()
+	node.Parent = message.OriginAddress + message.OriginPort
+	return node.sendToChildren(message.Content, message.Round, 0)
+}
+
+func (node *TestNode) sendToChildren(content string, round int, subTreeSize int) lab3.Message {
+	message := buildMessage(content, node, round, subTreeSize)
+	count := 0
+	var sent = make(chan bool, len(node.Neighbours))
+	for neighbour := range node.Neighbours {
+		if neighbour != node.Parent {
+			log.Debug("Sending from initiator to: " + neighbour)
+			go node.SendMessage(message, neighbour, sent)
+			count++
+		}
+	}
+	for count > 0 {
+		<-sent
+		count--
+	}
+	return message
+}
+
+func (node *TestNode) setNeighborsToNotVisited() {
+	for neighbour := range node.Neighbours {
+		node.Neighbours[neighbour] = false
+	}
+}
+
+
+
+
 
 func printNodeInfo(node *TestNode) {
 	fmt.Println("Node Info ------------------------------")
-	fmt.Printf("ID -> %s          isInitiator -> %t\n", node.ID, node.IsInitiator)
+	fmt.Printf("Self assigned ID -> %s          isInitiator -> %t\n", node.ID, node.IsInitiator)
 	fmt.Printf("Address -> %s     Port -> %s\n", node.Address, node.Port)
 	fmt.Println("Neighbors")
 	for neighbour := range node.Neighbours {
@@ -150,18 +173,21 @@ func printNodeInfo(node *TestNode) {
 	fmt.Println("----------------------------------------")
 }
 
-func buildMessage(content string, node *TestNode, count int) lab2.Message {
-	message := lab2.Message{
-		OriginAddress: node.Address,
-		OriginPort:    node.Port,
-		ID:            node.ID,
-		Num:           count,
-		Content:       content,
-		Error:         nil}
+func buildMessage(content string, node *TestNode, round int, subTreeSize int) lab3.Message {
+	message := lab3.Message{
+		OriginAddress: 	node.Address,
+		OriginPort:    	node.Port,
+		ID:            	node.ID,
+		Content:       	content,
+		Error:        	nil,
+		Round: 			round,
+		SubTreeSize:	subTreeSize,
+
+	}
 	return message
 }
 
-func loadNode(filepath string) (node TestNode, err error) {
+func loadNode(filepath string, networkSize string) (node TestNode, err error) {
 	log.Debug("Loading node...")
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -180,10 +206,14 @@ func loadNode(filepath string) (node TestNode, err error) {
 
 	node.Address = slice[0]
 	node.Port = ":" + slice[1]
-	node.ID = slice[2]
-	node.IsInitiator = len(slice) > 3 && slice[3] == "*"
+	node.IsInitiator = (len(slice) > 3 && slice[3] == "*" )|| (len(slice) > 2 && slice[2] == "*")
 	node.responseCounter = 0
-	node.largestId = "0"
+	node.largestId = 0
+	node.networkSize, err = strconv.Atoi(networkSize)
+	if err != nil {
+		return node, err
+	}
+	node.ID = rand.Intn(node.networkSize)
 
 	log.Debug("Setting neighbor map...")
 	node.Neighbours = make(map[string]bool)
@@ -196,19 +226,24 @@ func loadNode(filepath string) (node TestNode, err error) {
 	return node, err
 }
 
+func selfAssignRandomID() {
+
+}
+
 func main() {
 	log.SetLevel(log.DebugLevel)
 	log.Info("Running main test for node2...")
 
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		log.Error("Argument missing: configuration file. ")
 		return
 	}
 
 	log.Info("Reading configuration file...")
 
-	configDir := "ads/lab2/exercise2/files/configFiles/"
-	node, err := loadNode(configDir + os.Args[1])
+	configDir := "ads/lab3/anon/files/configFiles/"
+	node, err := loadNode(configDir + os.Args[1], os.Args[2])
+
 	if err != nil {
 		log.Error("Error creating the node!", err)
 		return

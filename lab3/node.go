@@ -1,4 +1,4 @@
-package lab2
+package lab3
 
 import (
 	"encoding/gob"
@@ -14,19 +14,21 @@ type Node struct {
 	Address 	string			// Node Address
 	Port        string          // Node listening port
 	Neighbours  map[string]bool // Node neighbours
-	ID          string
+	ID          int
 	Parent      string
 	IsInitiator bool
 }
 
 // Message contain the information related to a received message.
 type Message struct {
-	OriginAddress string 	//	IP of sender
-	OriginPort   string 	//	port of sender
-	ID            string 	// 	ID of the sender
+	OriginAddress 	string 	//	IP of sender
+	OriginPort   	string 	//	port of sender
+	ID            	int 	// 	ID of the sender
 	Num 			int
-	Content       string 	// 	content of the message
-	Error         error  	// 	contains the error, if any
+	Content       	string 	// 	content of the message
+	Round 			int
+	SubTreeSize		int
+	Error         	error  	// 	contains the error, if any
 }
 
 func (node Node) readMessage(connection net.Conn, incoming chan Message) {
@@ -39,7 +41,7 @@ func (node Node) readMessage(connection net.Conn, incoming chan Message) {
 	if decodeError != nil {
 		log.Error(decodeError)
 	} else {
-		log.Debug("Message #" + strconv.Itoa(message.Num) + "received from node " + message.ID + " at " + message.OriginAddress + message.OriginPort + " Content is: " + message.Content)
+		//log.Debug("Message #" + strconv.Itoa(message.Num) + "received from node " + message.ID + " at " + message.OriginAddress + message.OriginPort + " Content is: " + message.Content)
 	}
 
 	incoming <- message

@@ -122,7 +122,6 @@ func (node *TestNode) onIncoming() {
 
 			if len(node.Neighbours) == node.responseCounter {
 				if node.IsInitiator && node.ID == node.largestId {
-					fmt.Println("---- DECISION EVENT ----> PROCESS w/ ID #" + node.ID + ": I'm leader!")
 
 					break
 				} else {
@@ -135,7 +134,8 @@ func (node *TestNode) onIncoming() {
 		}
 	}
 	node.stop(node.Parent, incoming)
-}
+}					fmt.Println("---- DECISION EVENT ----> PROCESS w/ ID #" + node.ID + ": I'm leader!")
+
 
 func printNodeInfo(node *TestNode) {
 	fmt.Println("Node Info ------------------------------")
