@@ -5,7 +5,6 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
-	"strconv"
 )
 
 // Node represents a node in a network, listening in his own port
@@ -85,7 +84,7 @@ func (node *Node) SendMessage(message Message, destination string, sent chan boo
 	if encodeError != nil {
 		log.Error(encodeError)
 	} else {
-		log.Debug("Message #" + strconv.Itoa(message.Num) + "sent to " + destination + " Content is: " + message.Content)
+		//log.Debug("Message #" + strconv.Itoa(message.Num) + "sent to " + destination + " Content is: " + message.Content)
 	}
 
 

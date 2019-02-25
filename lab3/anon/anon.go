@@ -83,25 +83,30 @@ func (node *TestNode) onIncoming() {
 			lastMessageID, _ = strconv.Atoi(lastMessage.Content)
 
 		} else {
+			//log.Debug("Node " + node.Port + ": Received round " + strconv.Itoa(incomingMessage.Round) + ". My round is " + strconv.Itoa(lastMessage.Round))
 			if incomingMessage.Round < lastMessage.Round {
-				// do nothing
+				log.Debug("Node " + node.Port + ": Received smaller round (" + strconv.Itoa(incomingMessage.Round) + ") than mine (" + strconv.Itoa(lastMessage.Round) + "). I should DO NOTHING.")
 			} else if incomingMessage.Round > lastMessage.Round {
-				log.Info("JoinWave 2")
+				log.Debug("Node " + node.Port + ": Received bigger round (" + strconv.Itoa(incomingMessage.Round) + ") than mine (" + strconv.Itoa(lastMessage.Round) + "). I should JOIN WAVE.")
 				subTreeSize = 0
 				nodesVisited = 0
 				lastMessage = node.joinWave(incomingMessage)
 				lastMessageID, _ = strconv.Atoi(lastMessage.Content)
 			} else {
+				log.Debug("Node " + node.Port + ": Received equal round (" + strconv.Itoa(incomingMessage.Round) + ") to mine (" + strconv.Itoa(lastMessage.Round) + ").")
 				incomingID, _ := strconv.Atoi(incomingMessage.Content)
+				//log.Debug("Node " + node.Port + ": Received ID " + strconv.Itoa(incomingID) + ". My wave's ID is " + strconv.Itoa(lastMessage.ID))
 				if incomingID < lastMessageID {
 					// do nothing
+					log.Debug("Node " + node.Port + ": Received smaller ID (" + strconv.Itoa(incomingID) + ") than mine (" + strconv.Itoa(lastMessage.ID) + "). I should DO NOTHING.")
 				} else if incomingID > lastMessageID {
-					log.Info("JoinWave 3")
+					log.Debug("Node " + node.Port + ": Received bigger ID (" + strconv.Itoa(incomingID) + ") than mine (" + strconv.Itoa(lastMessage.ID) + "). I should JOIN WAVE.")
 					subTreeSize = 0
 					nodesVisited = 0
 					lastMessage = node.joinWave(incomingMessage)
 					lastMessageID, _ = strconv.Atoi(lastMessage.Content)
 				} else {
+					log.Debug("Node " + node.Port + ": Received equal ID (" + strconv.Itoa(incomingID) + ") to mine (" + strconv.Itoa(lastMessage.ID) + "). I should ACC.")
 					subTreeSize += incomingMessage.SubTreeSize
 					nodesVisited++
 				}
@@ -110,11 +115,12 @@ func (node *TestNode) onIncoming() {
 
 		fmt.Println("Nodes visited: ", nodesVisited)
 		fmt.Println("Size: ", subTreeSize)
-		if lastMessageID != node.ID && nodesVisited == len(node.Neighbours)-1 {
+
+		if lastMessageID != node.ID && nodesVisited == len(node.Neighbours) - 1 {
 			node.sendToParent(incomingMessage, subTreeSize)
 
 		} else if nodesVisited == len(node.Neighbours) {
-			if subTreeSize == node.networkSize-1 {
+			if subTreeSize == node.networkSize - 1 {
 				// Leader
 				fmt.Println("Leader!")
 
@@ -140,6 +146,7 @@ func (node *TestNode) sendToParent(message lab3.Message, subTreeSize int) {
 func (node *TestNode) startWave(round int) (message lab3.Message) {
 	node.selfAssignRandomID()
 	node.setNeighborsToNotVisited()
+	log.Debug("Node " + node.Port + ": starting wave with ID " + strconv.Itoa(node.ID) + " and Round " + strconv.Itoa(round))
 	return node.sendToChildren(strconv.Itoa(node.ID), round, 0)
 }
 
@@ -148,6 +155,7 @@ func (node *TestNode) joinWave(message lab3.Message) lab3.Message {
 	node.Parent = message.OriginAddress + message.OriginPort
 	log.Debug("Parent set to ", node.Parent)
 
+	log.Debug("Node " + node.Port + ": joining wave with ID " + message.Content + " and Round " + strconv.Itoa(message.Round))
 	return node.sendToChildren(message.Content, message.Round, 0)
 }
 
@@ -157,7 +165,7 @@ func (node *TestNode) sendToChildren(content string, round int, subTreeSize int)
 	var sent = make(chan bool, len(node.Neighbours))
 	for neighbour := range node.Neighbours {
 		if neighbour != node.Parent {
-			log.Debug("Sending from ", node.Port, " to: ", neighbour)
+			//log.Debug("Sending from ", node.Port, " to: ", neighbour)
 			go node.SendMessage(message, neighbour, sent)
 			count++
 		}
@@ -166,6 +174,7 @@ func (node *TestNode) sendToChildren(content string, round int, subTreeSize int)
 		<-sent
 		count--
 	}
+	log.Debug("Node " + node.Port + ": Sent to all children")
 	return message
 }
 
@@ -181,8 +190,8 @@ func (node *TestNode) selfAssignRandomID() {
 }
 
 func printNodeInfo(node *TestNode) {
-	fmt.Println("Node Info ------------------------------")
-	fmt.Printf("Self assigned ID -> %v          isInitiator -> %t\n", node.ID, node.IsInitiator)
+	fmt.Println("Node Info ---------------------------------------------------------------------------------------")
+	fmt.Printf("ID (default) -> %v          isInitiator -> %t\n", node.ID, node.IsInitiator)
 	fmt.Printf("Address -> %s     Port -> %s\n", node.Address, node.Port)
 	fmt.Println("Neighbors")
 	for neighbour := range node.Neighbours {
@@ -190,7 +199,7 @@ func printNodeInfo(node *TestNode) {
 	}
 	fmt.Printf("\n")
 	fmt.Println("Parent ->", node.Parent)
-	fmt.Println("----------------------------------------")
+	fmt.Println("-------------------------------------------------------------------------------------------------")
 }
 
 func buildMessage(content string, node *TestNode, round int, subTreeSize int) lab3.Message {
@@ -254,7 +263,7 @@ func setSeedForIdRandomizer(port string) {
 }
 
 func main() {
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 	log.Info("Running main test for node2...")
 
 	if len(os.Args) < 3 {
