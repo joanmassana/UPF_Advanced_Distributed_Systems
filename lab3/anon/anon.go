@@ -4,12 +4,12 @@ import (
 	"ads/lab3"
 	"bufio"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 // TestNode is a wrapper for implementing 3/exercise2
@@ -61,6 +61,7 @@ func (node *TestNode) onIncoming() {
 
 	var lastMessage lab3.Message
 	var lastMessageID int
+
 	if node.IsInitiator {
 		lastMessage = node.startWave(round)
 		lastMessageID = node.ID
@@ -121,7 +122,6 @@ func (node *TestNode) onIncoming() {
 				subTreeSize = 0
 				nodesVisited = 0
 				round++
-				node.ID = rand.Intn(node.networkSize)
 				lastMessage = node.startWave(round)
 				lastMessageID, _ = strconv.Atoi(lastMessage.Content)
 			}
@@ -138,6 +138,7 @@ func (node *TestNode) sendToParent(message lab3.Message, subTreeSize int) {
 }
 
 func (node *TestNode) startWave(round int) (message lab3.Message) {
+	node.selfAssignRandomID()
 	node.setNeighborsToNotVisited()
 	return node.sendToChildren(strconv.Itoa(node.ID), round, 0)
 }
@@ -172,6 +173,11 @@ func (node *TestNode) setNeighborsToNotVisited() {
 	for neighbour := range node.Neighbours {
 		node.Neighbours[neighbour] = false
 	}
+}
+
+func (node *TestNode) selfAssignRandomID() {
+	node.ID = rand.Intn(node.networkSize) + 1
+	log.Info("Node self-assigned ID to " + strconv.Itoa(node.ID))
 }
 
 func printNodeInfo(node *TestNode) {
@@ -225,9 +231,9 @@ func loadNode(filepath string, networkSize string) (node TestNode, err error) {
 	if err != nil {
 		return node, err
 	}
-	seed, _ := strconv.ParseInt(slice[1], 0, 0)
-	rand.Seed(seed)
-	node.ID = rand.Intn(node.networkSize)
+
+	node.ID = 0
+	setSeedForIdRandomizer(slice[1])
 
 	log.Debug("Setting neighbor map...")
 	node.Neighbours = make(map[string]bool)
@@ -240,8 +246,11 @@ func loadNode(filepath string, networkSize string) (node TestNode, err error) {
 	return node, err
 }
 
-func selfAssignRandomID() {
-
+func setSeedForIdRandomizer(port string) {
+	seedPort, _ := strconv.ParseInt(port, 0, 0)
+	seedTime := time.Now().UnixNano()
+	seed := seedPort + seedTime
+	rand.Seed(seed)
 }
 
 func main() {
