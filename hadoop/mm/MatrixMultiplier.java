@@ -151,38 +151,37 @@ public class MatrixMultiplier {
         
         Configuration conf = new Configuration();
         
-        Job job1 = Job.getInstance(conf, "matix multiplication 1st part");
+        Job multiplierJob = Job.getInstance(conf, "matix multiplication 1st part");
         
-        job1.setJarByClass(MatrixMultiplier.class);
-        job1.setMapperClass(MatrixMapper.class);
-        job1.setMapOutputValueClass(CellWritable.class);
-        //job1.setCombinerClass(IntSumReducer.class);
-        job1.setReducerClass(MultiplierReducer.class);
+        multiplierJob.setJarByClass(MatrixMultiplier.class);
+        multiplierJob.setMapperClass(MatrixMapper.class);
+        multiplierJob.setMapOutputValueClass(CellWritable.class);
+        multiplierJob.setReducerClass(MultiplierReducer.class);
         
-        job1.setOutputKeyClass(Text.class);
-        job1.setOutputValueClass(IntWritable.class);
+        multiplierJob.setOutputKeyClass(Text.class);
+        multiplierJob.setOutputValueClass(IntWritable.class);
         
-        TextInputFormat.addInputPath(job1, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job1, new Path(args[1] + "_partial"));
+        TextInputFormat.addInputPath(multiplierJob, new Path(args[0]));
+        FileOutputFormat.setOutputPath(multiplierJob, new Path(args[1] + "_partial"));
  
-        if (!job1.waitForCompletion(true)) {
+        if (!multiplierJob.waitForCompletion(true)) {
             System.exit(1);
         }
        
-        Job job2 = Job.getInstance(conf, "matix multiplication 2nd part");
+        Job sumJob = Job.getInstance(conf, "matix multiplication 2nd part");
         
-        job2.setJarByClass(MatrixMultiplier.class);
-        job2.setMapperClass(MyIdentityMapper.class);
-        //job2.setCombinerClass(IntSumReducer.class);
-        job2.setReducerClass(IntSumReducer.class);
+        sumJob.setJarByClass(MatrixMultiplier.class);
+        sumJob.setMapperClass(MyIdentityMapper.class);
+        //sumJob.setCombinerClass(IntSumReducer.class);
+        sumJob.setReducerClass(IntSumReducer.class);
         
-        job2.setOutputKeyClass(Text.class);
-        job2.setOutputValueClass(IntWritable.class);
+        sumJob.setOutputKeyClass(Text.class);
+        sumJob.setOutputValueClass(IntWritable.class);
         
-        TextInputFormat.addInputPath(job2, new Path(args[1] + "_partial"));
-        FileOutputFormat.setOutputPath(job2, new Path(args[1]));
+        TextInputFormat.addInputPath(sumJob, new Path(args[1] + "_partial"));
+        FileOutputFormat.setOutputPath(sumJob, new Path(args[1]));
  
-        System.exit(job2.waitForCompletion(true) ? 0 : 1);
+        System.exit(sumJob.waitForCompletion(true) ? 0 : 1);
     }
 }
 
